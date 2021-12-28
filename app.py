@@ -1,11 +1,19 @@
 from flask import Flask, render_template, Response,request
 import cv2
 import base64
-import numpy as np
+import time
+import os
+cur_path = os.path.dirname(__file__)
 app=Flask(__name__)
 camera=cv2.VideoCapture(0)
 
-
+def checkpath(name):
+    path ="./"+ name
+    isExist = os.path.exists(path)
+    if not isExist:
+  # Create a new directory because it does not exist 
+        os.makedirs(path)
+        print("The new directory is created!")
 
 def generate_frames():
     while True:
@@ -47,10 +55,16 @@ def post_images():
     obj=obj.strip(""" {"img":"  """)
     obj=obj.strip(""" "}  """)
     obj  = bytes(obj, 'ascii')
-    print(type(obj))
-    #print(len(obj))
-    #print(obj)
-    with open("imageToSave.jpg", "wb") as fh:
+    name="Ehsan"
+    t = time.localtime()
+    
+    img_name =name+"_"+ str(t.tm_mday)+"_"+str(t.tm_mon)+"_"+str(t.tm_year)+"_"+str(t.tm_hour)+"_"+str(t.tm_min)+"_"+str(t.tm_sec)
+    img_name +=".jpg"
+    
+    checkpath(name)
+    new_path = os.path.relpath('.\\{}\\{}'.format(name,img_name), cur_path)
+
+    with open(new_path, "wb") as fh:
         fh.write(base64.decodebytes(obj))
     
     return (Response(),200)
