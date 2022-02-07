@@ -62,7 +62,7 @@ def people():
     f = open("test.txt", 'r')
     x = f.read()
     f.close()
-    return (x)
+    return x
 
 
 def generate_frames():
@@ -115,7 +115,7 @@ def video():
     return Response(generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
 
 
-@app.route("/")
+@app.route("/a")
 def index():
     send_notifications_wrapper()
 
