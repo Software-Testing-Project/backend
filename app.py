@@ -4,12 +4,14 @@ import cv2
 import base64
 import time
 import os
+import sys
 from twilio.rest import Client
 import requests as req
 from flask import jsonify
 import face_recognition
 import numpy as np
 import time
+import base64
 from multiprocessing import Value
 
 
@@ -47,11 +49,11 @@ known_face_names = [
 
 
 def checkpath(name):
-    path = "./" + name
-    isExist = os.path.exists(path)
+
+    isExist = os.path.exists(name)
     if not isExist:
       # Create a new directory because it does not exist
-        os.makedirs(path)
+        os.makedirs(name)
         print("The new directory is created!")
 
 # seprate /people should be called to display the names of people in video
@@ -179,26 +181,28 @@ def ehsan():
 @app.route("/Postimages",  methods=['POST'])
 def post_images():
     r = request
+    obj = r.get_json()
+    obj = obj["img"]
+    obj = base64.b64decode(obj)
+    print(type(obj))
+
     # convert string of image data to uint8
-    #nparr = np.fromstring(r.data, np.uint8)
     # decode image
    # img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-    obj = r.data.decode("utf-8")
-    obj = obj.strip(""" {"img":"  """)
-    obj = obj.strip(""" "}  """)
-    obj = bytes(obj, 'ascii')
-    name = "Ehsan"
+
+    name = "Ahamd"
     t = time.localtime()
 
     img_name = name+"_" + str(t.tm_mday)+"_"+str(t.tm_mon)+"_"+str(
         t.tm_year)+"_"+str(t.tm_hour)+"_"+str(t.tm_min)+"_"+str(t.tm_sec)
     img_name += ".jpg"
 
-    checkpath(name)
-    new_path = os.path.relpath('.\\{}\\{}'.format(name, img_name), cur_path)
+    save_path = "./"+name
+    completeName = os.path.join(save_path, img_name)
+    checkpath(save_path)
 
-    with open(new_path, "wb") as fh:
-        fh.write(base64.decodebytes(obj))
+    with open(completeName, "wb") as fh:
+        fh.write(obj)
 
     return (Response(), 200)
 
