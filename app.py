@@ -13,7 +13,8 @@ import numpy as np
 import time
 import base64
 from multiprocessing import Value
-
+from readVideo import readVideo
+from writeThreadDateTimeName import writeThreadDateTimeName
 
 counter = Value('i', 0)
 
@@ -27,25 +28,9 @@ config_firebase = {
     "serviceAccount": "serciveaccountkey.json"
 }
 
-obama_image = face_recognition.load_image_file("ehsan1.jpg")
-obama_face_encoding = face_recognition.face_encodings(obama_image)[0]
-
-reem_image = face_recognition.load_image_file("ehsan1.jpg")
-reem_face_encoding = face_recognition.face_encodings(reem_image)[0]
-
 
 cur_path = os.path.dirname(__file__)
 app = Flask(__name__)
-camera = cv2.VideoCapture(0)
-known_face_encodings = [
-    obama_face_encoding,
-    reem_face_encoding
-
-]
-known_face_names = [
-    "Ehsan",
-    "Reem"
-]
 
 
 def checkpath(name):
@@ -67,45 +52,17 @@ def people():
     return x
 
 
-def generate_frames():
+def multiThreads(source=0):
+    counter=0
+    readVideoObj = readVideo(source).start() 
+    writeThreadDateTimeNameObj=writeThreadDateTimeName(readVideoObj.frame).start() #thread for Video Chunking via Name Date Time
     while True:
-
-        success, frame = camera.read()
-        half = cv2.resize(frame, (0, 0), fx=0.5, fy=0.5)
-
-        if not success:
-            with counter.get_lock():
-                counter.value = 0
+        if readVideoObj.stopped or writeThreadDateTimeNameObj.stopped:
+            readVideoObj.stop()
+            writeThreadDateTimeNameObj.stop()
             break
-        else:
-            if counter.value == 0:
-                face_locations = face_recognition.face_locations(half)
-                face_encodings = face_recognition.face_encodings(
-                    half, face_locations)
-                face_names = []
-                for face_encoding in face_encodings:
-                    matches = face_recognition.compare_faces(
-                        known_face_encodings, face_encoding, tolerance=0.52)
-                    name = "Unknown"
-                    face_distances = face_recognition.face_distance(
-                        known_face_encodings, face_encoding)
-                    best_match_index = np.argmin(face_distances)
-                    if matches[best_match_index]:
-                        name = known_face_names[best_match_index]
-                    face_names.append(name)
-                f = open("test.txt", 'w')
-                for name in zip(face_names):
-                    # print(name)
-                    f.write(str(name))
-                    # people(name)
-                f.close()
-                with counter.get_lock():
-                    counter.value += 1
-
-        with counter.get_lock():
-            counter.value += 1
-            if counter.value >= 20:
-                counter.value = 0
+        frame=readVideoObj.frame
+        writeThreadDateTimeNameObj.frame=frame
         ret, buffer = cv2.imencode('.jpg', frame)
         frame = buffer.tobytes()
         yield (b'--frame\r\n'
@@ -114,10 +71,10 @@ def generate_frames():
 
 @app.route("/video")
 def video():
-    return Response(generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
+    return Response(multiThreads(), mimetype='multipart/x-mixed-replace; boundary=frame')
 
 
-@app.route("/a")
+@app.route("/")
 def index():
     send_notifications_wrapper()
 
