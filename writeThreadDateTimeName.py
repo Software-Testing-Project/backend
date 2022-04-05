@@ -17,122 +17,182 @@ class writeThreadDateTimeName:
         Thread(target=self.show, args=()).start()
         return self
 
-    def show(self):
-        #At the end of this function it would print the list with a list[name, date, time]
-        #read a last updated file counter and date from a file
-        #run for the first time
-        temp=0
+    def readFile(self):
         f= open("last_updated_file_counter_and_date.txt","r+")
         contents=f.read()
         x = contents.split(",")
-        lastUpdatedCounter=int(x[0])#when no file created, the value will be zero
-        lastUpdatedDate=str(x[1])#when no date created, the value will be empty space in the file 
         f.close()
+        return x
 
-        imgObj=images()
-        if imgObj.checkImagesLength()!=0:
-            #There lies one to one correspondence between the known face encodings and the knownFaceNames
-            #For example, the first entry of the known face encoding would be the encoding for the name in the known face names
-            #This function gets the encodings of the saved images 
+    def videoStart(self,new_date,newCounter,fourcc,frame_size,size,videoLength,names,new_time):
+        innerVideoCounter=1
+        flag1=flag2=flag3=False
+        innerFrameCounter=0
+        flagcounter=0
+        length=0
+        new_path="videos/"+new_date+"/"+f"{str(newCounter)}.mp4"
+        chunks = cv2.VideoWriter(new_path, fourcc, frame_size, size)
+        outputList=[]
+        innerList=[]
+        while not self.stopped:
+            cv2.imshow("DateTimeNameVideo", self.frame)
+            #print('inner frame counter: ',innerFrameCounter)
+            innerFrameCounter+=1
+            innerVideoCounter+=1
+            if innerFrameCounter==10 or innerFrameCounter==25 or innerFrameCounter==35:
+                face_locations = face_recognition.face_locations(self.frame)
+                length=len(face_locations)
+                if length!=0 and innerFrameCounter==10:
+                    flag1=True
+                    flagcounter+=1
+                if length!=0 and innerFrameCounter==25:
+                    flag2=True
+                    flagcounter+=1
+                if length!=0 and innerFrameCounter==35:
+                    flag3=True
+                    flagcounter+=1    
+            if length!=0 and names[0]=='null':
+                print('A face is detected but not recognized yet in an empty room')
+                for name in names:
+                    innerList=[]
+                    innerList.append(name)
+                    innerList.append(new_date)
+                    innerList.append(new_time)
+                    innerList.append(new_path)
+                    outputList.append(innerList)
+                chunks.release()
+                break
+            if length==0 and names[0]!='null' and flagcounter>1:
+                print('A face is not detected anymore, while the video started when a human got detected')
+                for name in names:
+                    innerList=[]
+                    innerList.append(name)
+                    innerList.append(new_date)
+                    innerList.append(new_time)
+                    innerList.append(new_path)
+                    outputList.append(innerList)
+                chunks.release()
+                break
+            if innerVideoCounter > videoLength:
+                for name in names:
+                    innerList=[]
+                    innerList.append(name)
+                    innerList.append(new_date)
+                    innerList.append(new_time)
+                    innerList.append(new_path)
+                    outputList.append(innerList)
+                chunks.release()
+                break
+            if innerFrameCounter==40:
+                innerFrameCounter = 1
+            chunks.write(self.frame)
+            if cv2.waitKey(1) == ord("q"):
+                chunks.release()
+                self.stopped = True
+                cv2.destroyAllWindows()
+        return outputList
+
+    def show(self):
+        #local variables
+        temp=0
+        frame_size=int(40)
+        videoLength=int(10)*frame_size 
+        size,frame_counter=(int(1280),int(720)),1
+        fourcc = cv2.VideoWriter.fourcc(*'MP4V')
+        flagFaceFound=False
+
+        #reading a file
+        x=self.readFile()
+        lastUpdatedCounter=int(x[0])
+        lastUpdatedDate=str(x[1])
+
+
+        #capturing frames until not stopped
+        while not self.stopped:
+            #reading images to be recognized and also the associated functionalities
+            imgObj=images()
             knownFaceEncodings=imgObj.getKnownFaceEncodings()
-            #This function gets the names of the saved names in the database
             knownFaceNames=imgObj.getNames()
-            print('known faces: ',knownFaceNames)
-            #Configurations foe setting the duration of a video
-            frame_size=int(40)
-            videoLength=int(10)*frame_size #set videoLength to any number of seconds, here it is 10 seconds
-            #Setting the size( or resolution) of video's frame
-            size,frame_counter=(int(1280),int(720)),1
-            #Setting the format of the video
-            fourcc = cv2.VideoWriter.fourcc(*'MP4V')
-            #flag for detecting the presence of the recognized face in the video
+            #print('known faces: ',knownFaceNames)
+            cv2.imshow("DateTimeNameVideo", self.frame)
+            #print('framecounteroutside: ',frame_counter)
+            frame_counter+=1
             flagFaceFound=False
-            #Keep taking frames until a key 'q' is not pressed
-            while not self.stopped:
-                cv2.imshow("DateTimeNameVideo", self.frame)
-                frame_counter+=1
-                innerVideoCounter=1
-                #In order to reduce the processing speed of the model, only model is used over fixed frame number
-                if frame_counter==3 or frame_counter==24 or frame_counter==39: 
-                    #This function detects the multiple faces's face locations
-                    face_locations = face_recognition.face_locations(self.frame)
-                    #If there is no person in the video then this face recognition would not work
-                    length=len(face_locations)
-                    #print(length)
-                    if length!=0:
-                        #Stores the recognized names
-                        names = []
-                        #This function helps in getting the encodingd for the face locations
-                        face_encodings = face_recognition.face_encodings(self.frame, face_locations)
-                        #We would match the encodings of the recognized faces in the video with the known encodings
-                        for face_encoding in face_encodings:
-                            matches = face_recognition.compare_faces(knownFaceEncodings, face_encoding, tolerance=0.6)
-                        #print(matches)
-                        index=0
-                        flagFaceFound=False
-                        # check to see if we have found a match
-                        for match in matches:
-                            if match == True:
-                                names.append(knownFaceNames[index])
-                                flagFaceFound=True
-                        index+=1
-                        #print(names)
-                        if flagFaceFound: #start making video of 1 minute long duration as set above
-                            print("Video making started")
-                            # chunks = cv2.VideoWriter(f"videoClipsDateName/{name+' - '+time.strftime('%d %m %Y - %H %M %S')}.mp4", fourcc, frame_size, size)
-                            #we need to make a path for storing the video using datefolder in videos folder
-                            #Check the updateddatefolder has a space or not
-                            new_time=time.strftime('%H %M %S')
-                            #print(new_time)
-                            if lastUpdatedDate==" " or lastUpdatedDate!=time.strftime('%d %m %Y'):
-                                new_date=time.strftime('%d %m %Y')
-                                lastUpdatedDate=new_date
-                                path = 'videos/'+new_date
-                                #make a directory folder with new date
-                                os.makedirs(path)
-                            if temp==0:
-                                newCounter=int(lastUpdatedCounter)+1
-                                temp=1
-                            else:
-                                newCounter=int(newCounter)+1
-                            f= open("last_updated_file_counter_and_date.txt","w+")
-                            f.write(str(newCounter))
-                            f.write(',')
-                            f.write(new_date)
-                            f.close()
-                            #check the date folder exist in the videos folder or not
-                            new_path="videos/"+new_date+"/"+f"{str(newCounter)}.mp4"
-                            chunks = cv2.VideoWriter(new_path, fourcc, frame_size, size)
-                            outputList=[]
-                            innerList=[]
-                            while not self.stopped:
-                                cv2.imshow("DateTimeNameVideo", self.frame)
-                                innerVideoCounter+=1
-                                if innerVideoCounter > videoLength:
-                                    #Now we want to make a output List
-                                    for name in names:
-                                        innerList=[]
-                                        innerList.append(name)
-                                        innerList.append(new_date)
-                                        innerList.append(new_time)
-                                        innerList.append(new_path)
-                                        outputList.append(innerList)
-                                    chunks.release()
-                                    frame_counter = 1
-                                    break
-                                chunks.write(self.frame)
-                                if cv2.waitKey(1) == ord("q"):
-                                    chunks.release()
-                                    self.stopped = True
-                                    cv2.destroyAllWindows()
-                            print(outputList)
-                            outputList=[]
-                if frame_counter==40:
+            if frame_counter==3 or frame_counter==24 or frame_counter==39: 
+                face_locations = face_recognition.face_locations(self.frame)
+                length=len(face_locations)
+                #start
+                names = []
+                if length!=0:
+                    face_encodings = face_recognition.face_encodings(self.frame, face_locations)
+                    for face_encoding in face_encodings:
+                        matches = face_recognition.compare_faces(knownFaceEncodings, face_encoding, tolerance=0.6)
+                    index=0
+                    for match in matches:
+                      if match == True:
+                          names.append(knownFaceNames[index])
+                          flagFaceFound=True
+                      index+=1
+                    if flagFaceFound: 
+                        print("Video making started when a human got recognized")
+                        new_time=time.strftime('%H %M %S')
+                        new_date=lastUpdatedDate
+                        if lastUpdatedDate==" " or lastUpdatedDate!=time.strftime('%d %m %Y'):
+                            new_date=time.strftime('%d %m %Y')
+                            lastUpdatedDate=new_date
+                            path = 'videos/'+new_date
+                            os.makedirs(path)
+                        if temp==0:
+                            newCounter=int(lastUpdatedCounter)+1
+                            temp=1
+                        else:
+                            newCounter=int(newCounter)+1
+                        #write to file the updated values
+                        fout= open("last_updated_file_counter_and_date.txt","w+")
+                        fout.write(str(newCounter))
+                        fout.write(',')
+                        print(new_date)
+                        fout.write(new_date)
+                        fout.close()
+                        #start making video
+                        outputList=self.videoStart(new_date,newCounter,fourcc,frame_size,size,videoLength,names,new_time)
+                        print(outputList)
+                        outputList=[]
+                        frame_counter = 1
+                elif flagFaceFound==False and frame_counter==39:
+                    print('Video making started when no face found')
+                    new_time=time.strftime('%H %M %S')
+                    new_date=lastUpdatedDate
+                    if lastUpdatedDate==" " or lastUpdatedDate!=time.strftime('%d %m %Y'):
+                        new_date=time.strftime('%d %m %Y')
+                        lastUpdatedDate=new_date
+                        path = 'videos/'+new_date
+                        os.makedirs(path)
+                    if temp==0:
+                        newCounter=int(lastUpdatedCounter)+1
+                        temp=1
+                    else:
+                        newCounter=int(newCounter)+1
+                    #write to file the updated values
+                    fout= open("last_updated_file_counter_and_date.txt","w+")
+                    fout.write(str(newCounter))
+                    fout.write(',')
+                    print(new_date)
+                    fout.write(new_date)
+                    fout.close()
+                    names=['null']
+                    #start making video
+                    outputList=self.videoStart(new_date,newCounter,fourcc,frame_size,size,videoLength,names,new_time)
+                    print(outputList)
+                    outputList=[]
                     frame_counter = 1
-                if cv2.waitKey(1) == ord("q"):
-                    self.stopped = True
-                    cv2.destroyAllWindows()
-        else:
-            print("Please add images in the faceImages Folder and also give right path of the face images folder in the images.py file")
+            if frame_counter==40:
+                frame_counter = 1
+            #end
+            if cv2.waitKey(1) == ord("q"):
+                self.stopped = True
+                cv2.destroyAllWindows()
+
     def stop(self):
         self.stopped = True
+
