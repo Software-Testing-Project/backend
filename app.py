@@ -15,6 +15,8 @@ import base64
 from multiprocessing import Value
 from readVideo import readVideo
 from writeThreadDateTimeName import writeThreadDateTimeName
+from werkzeug.utils import secure_filename
+from werkzeug.datastructures import FileStorage
 
 counter = Value('i', 0)
 
@@ -53,16 +55,17 @@ def people():
 
 
 def multiThreads(source=0):
-    counter=0
-    readVideoObj = readVideo(source).start() 
-    writeThreadDateTimeNameObj=writeThreadDateTimeName(readVideoObj.frame).start() #thread for Video Chunking via Name Date Time
+    counter = 0
+    readVideoObj = readVideo(source).start()
+    writeThreadDateTimeNameObj = writeThreadDateTimeName(
+        readVideoObj.frame).start()  # thread for Video Chunking via Name Date Time
     while True:
         if readVideoObj.stopped or writeThreadDateTimeNameObj.stopped:
             readVideoObj.stop()
             writeThreadDateTimeNameObj.stop()
             break
-        frame=readVideoObj.frame
-        writeThreadDateTimeNameObj.frame=frame
+        frame = readVideoObj.frame
+        writeThreadDateTimeNameObj.frame = frame
         ret, buffer = cv2.imencode('.jpg', frame)
         frame = buffer.tobytes()
         yield (b'--frame\r\n'
@@ -185,6 +188,13 @@ def send_notifications(expo_token, title, body):
         'body': body
     }
     return req.post('https://exp.host/--/api/v2/push/send', json=message)
+
+
+@app.route("/voice", methods=['POST'])
+def voice():
+    f = request.files['file']
+    f.save(secure_filename(f.filename))
+    return (Response(), 200)
 
 
 if __name__ == "__main__":
