@@ -17,7 +17,6 @@ from readVideo import readVideo
 from writeThreadDateTimeName import writeThreadDateTimeName
 from werkzeug.utils import secure_filename
 from werkzeug.datastructures import FileStorage
-
 import speech_recognition as sr
 import nltk
 from nltk.stem import WordNetLemmatizer
