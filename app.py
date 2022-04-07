@@ -13,8 +13,6 @@ import numpy as np
 import time
 import base64
 from multiprocessing import Value
-from readVideo import readVideo
-from writeThreadDateTimeName import writeThreadDateTimeName
 from werkzeug.utils import secure_filename
 from werkzeug.datastructures import FileStorage
 import speech_recognition as sr
@@ -204,33 +202,54 @@ def people():
     return x
 
 
-def multiThreads(source=0):
-    counter = 0
-    readVideoObj = readVideo(source).start()
-    writeThreadDateTimeNameObj = writeThreadDateTimeName(
-        readVideoObj.frame).start()  # thread for Video Chunking via Name Date Time
+def multiThreads():
+    print("Hello")
+
+    videoLength = 150  # 15 seconds long video
+    # set your screen size here
+    frame_width = int(camera.get(3))
+    frame_height = int(camera.get(4))
+    size = (frame_width, frame_height)
+
+    result = cv2.VideoWriter(f"videos/{time.strftime('%d %m %Y - %H %M %S')}.avi",
+                             cv2.VideoWriter_fourcc(*'MJPG'),
+                             10, size)
+    i = 0
     while True:
-        if readVideoObj.stopped or writeThreadDateTimeNameObj.stopped:
-            readVideoObj.stop()
-            writeThreadDateTimeNameObj.stop()
+        i += 1
+        if i > videoLength:
+            result.release()
+            i = 0
+            result = cv2.VideoWriter(f"videos/{time.strftime('%d %m %Y - %H %M %S')}.avi",
+                                     cv2.VideoWriter_fourcc(*'MJPG'),
+                                     10, size)
+        success, frame = camera.read()
+        half = cv2.resize(frame, (0, 0), fx=0.3, fy=0.3)
+
+        if not success:
             break
-        frame = readVideoObj.frame
-        writeThreadDateTimeNameObj.frame = frame
-        ret, buffer = cv2.imencode('.jpg', frame)
-        frame = buffer.tobytes()
-        yield (b'--frame\r\n'
-               b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
+        else:
+
+            ret, buffer = cv2.imencode('.jpg', half)
+            # save_video(buffer)
+            result.write(frame)
+
+            frame = buffer.tobytes()
+            yield (b'--frame\r\n'
+                   b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
 
 
 @app.route("/video")
 def video():
+
     return Response(multiThreads(), mimetype='multipart/x-mixed-replace; boundary=frame')
 
 
 @app.route("/")
 def index():
     send_notifications_wrapper()
-
+    global camera
+    camera = cv2.VideoCapture(0)
     return render_template("index.html")
 
 
