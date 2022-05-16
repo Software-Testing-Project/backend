@@ -1,3 +1,4 @@
+from crypt import methods
 from sqlalchemy import true
 import db as database
 import re
@@ -29,7 +30,8 @@ import glob
 from pathlib import Path
 import threading
 dir_path = os.path.dirname(os.path.realpath(__file__))
-
+cur_path = os.path.dirname(__file__)
+app = Flask(__name__)
 
 known_face_encodings = []
 known_face_names = []
@@ -169,15 +171,6 @@ def search_date(processed_text):
         return None
 
 
-def is_time_feasible(hours, minutes):
-    isValidTime = True
-    try:
-        time = datetime.time(hours, minutes, 0)
-    except ValueError:
-        isValidTime = False
-    return isValidTime
-
-
 def search_time(processed_text):
     hour = minutes = None
     if 'p.m' or 'a.m' in processed_text:
@@ -204,10 +197,6 @@ def search_time(processed_text):
 counter = Value('i', 0)
 
 
-cur_path = os.path.dirname(__file__)
-app = Flask(__name__)
-
-
 def checkpath(name):
 
     isExist = os.path.exists(name)
@@ -219,12 +208,31 @@ def checkpath(name):
 # seprate /people should be called to display the names of people in video
 
 
-@app.route("/people")
+@app.route("/people", methods=['GET'])
 def people():
     f = open("test.txt", 'r')
     x = f.read()
     f.close()
     return x
+
+# it doesnot return the boolean values
+
+
+@app.route("/feasible_time", methods=['POST'])
+def is_time_feasibles():
+    isValidTime = "Yes"
+    data = request.form
+
+    try:
+        time = datetime.time(data['hours'], data['minutes'], 0)
+        if time:
+            return "Yes"
+        else:
+            return "No"
+    except ValueError:
+        isValidTime = "No"
+    finally:
+        return isValidTime
 
 
 def send_live_stream():
