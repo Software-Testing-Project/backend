@@ -141,16 +141,19 @@ def search_name(processed_text):
     return names
 
 
-def is_date_feasible(day, month, year):
+@app.route("/date_feasible", methods=["POST"])
+def is_date_feasible():
     isValidDate = True
+    data = request.form
     try:
-        date = datetime.date(year, month, day)
+        date = datetime.date(int(data['year']), int(
+            data['month']), int(data['day']))
     except ValueError:
         isValidDate = False
     if isValidDate:
         if date >= START_DATE and date <= datetime.date.today():
-            return True
-    return False
+            return "True"
+    return "False"
 
 
 def search_date(processed_text):
@@ -391,13 +394,14 @@ def subscribe():
 
 @app.route("/Postimages",  methods=['POST'])
 def post_images():
-    r = request
+
     f = request.files['file']
-    f.save(os.path.join("faceImages", secure_filename(f.filename)))
+    #f.save(os.path.join("faceImages", secure_filename(f.filename)))
     x = {"message": "Yes"}
     return jsonify(x)
 
 
+@app.route("/send_notificaton", methods={"GET"})
 def send_notifications_wrapper():
     try:
         file = open("Subscribers.txt", "r")
@@ -407,8 +411,9 @@ def send_notifications_wrapper():
         for line in readfile:
 
             send_notifications(line, "Video Made", "Press to view")
+        return "Send"
     except:
-        return False
+        return "Not Send"
 
 
 def send_notifications(expo_token, title, body):
